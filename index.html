@@ -278,10 +278,20 @@ async function saveOrder(orderData) {
   existing.push(orderData);
   await setDoc(ref, { list: existing });
 }
+async function loadSettings() {
+  const snap = await getDoc(doc(db, 'settings', 'main'));
+  return snap.exists() ? snap.data() : { days: 1 };
+}
+
+async function saveSettings(data) {
+  await setDoc(doc(db, 'settings', 'main'), data);
+}
 async function startup() {
   await initUsersToFirebase();
   await loadUsers();
   await loadMenu();
+  const settings = await loadSettings();
+  window.openDays = settings.days || 1;
 }
 startup();
 window.go = go;
@@ -310,6 +320,10 @@ window.togItemDrink = togItemDrink;
 window.drawOrders = drawOrders;
 window.saveOrder = saveOrder;
 window.loadOrders = loadOrders;
+window.loadSettings = loadSettings;
+window.saveSettings = saveSettings;
+window.setOpenDays = setOpenDays;
+window.switchOrderDay = switchOrderDay;
 </script>
 <!-- 訂單 -->
  <div class="pg" id="pgOrders">
@@ -376,12 +390,13 @@ window.loadOrders = loadOrders;
   <div class="money" id="moneyEl"></div>
   <div class="date" id="dateEl"></div>
   <div id="cutEl"></div>
-  <div class="tabs">
-    <div class="tab on" onclick="switchTab('bento')">便當</div>
-    <div class="tab" onclick="switchTab('western')">西式</div>
-  </div>
-  <div id="tab-bento"><div id="bento-list"></div></div>
-  <div id="tab-western" class="hide"><div id="western-list"></div></div>
+  <div class="dtabs" id="dayOrderTabs"></div>
+<div class="tabs">
+  <div class="tab on" onclick="switchTab('bento')">便當</div>
+  <div class="tab" onclick="switchTab('western')">西式</div>
+</div>
+<div id="tab-bento"><div id="bento-list"></div></div>
+<div id="tab-western" class="hide"><div id="western-list"></div></div>
   <div class="foot">
     <div class="frow"><span>已選</span><span id="cnt">0 項</span></div>
     <div class="ftotal"><span>合計</span><span id="ttl">$0</span></div>
@@ -404,6 +419,16 @@ window.loadOrders = loadOrders;
       <button class="btn" onclick="go('pgOrder')">← 返回</button>
     </div>
   </div>
+  <div class="amtrow" style="margin-bottom:16px;">
+  <span style="font-size:13px;color:#888;">本週開放天數</span>
+  <select class="dsel" id="openDaysSel" onchange="setOpenDays(this.value)">
+    <option value="1">1 天</option>
+    <option value="2">2 天</option>
+    <option value="3">3 天</option>
+    <option value="4">4 天</option>
+    <option value="5">5 天</option>
+  </select>
+</div>
   <div class="dtabs" id="dtabs"></div>
   <div id="mcontent"></div>
   <div class="addbox">
@@ -483,6 +508,25 @@ const USERS = {
   "admin": { pin:"0000", balance:0, isAdmin:true,  log:[] },
 };
 
+let orderDay = 0;
+function drawDayOrderTabs() {
+  const days = window.openDays || 1;
+  const todayIdx = (new Date().getDay()+6)%7;
+  const tabs = document.getElementById('dayOrderTabs');
+  if (days <= 1) { tabs.innerHTML = ''; return; }
+  tabs.innerHTML = Array.from({length: days}, (_, i) => {
+    const d = DAYS[Math.min(todayIdx+i, 4)];
+    return `<div class="dtab${i===orderDay?' on':''}" onclick="switchOrderDay(${i})">週${d}</div>`;
+  }).join('');
+}
+
+function switchOrderDay(i) {
+  orderDay = i;
+  document.querySelectorAll('#dayOrderTabs .dtab').forEach((t,j) => t.classList.toggle('on', j===i));
+  resetPick();
+  drawMeals();
+}
+
 const DAYS  = ['一','二','三','四','五'];
 const DRINK = [{ name:"紅茶", add:15  },{ name:"綠茶", add:15  },{ name:"奶茶", add:25 },];
 const menu = DAYS.map(() => ({ bento: [], western: [] }));
@@ -514,6 +558,11 @@ function go(id) {
   if (id==='pgMenu')  drawMenuPage();
   if (id==='pgOrders') drawOrders();
 }
+async function setOpenDays(val) {
+  window.openDays = parseInt(val);
+  await window.saveSettings({ days: window.openDays });
+  toast(`已設定開放 ${val} 天`);
+}
 
 function doLogin() {
   const user = document.getElementById('iUser').value.trim();
@@ -535,6 +584,8 @@ function doLogin() {
   document.getElementById('dateEl').textContent = `星期${wd[n.getDay()]}・${n.getMonth()+1} 月 ${n.getDate()} 日`;
   drawCut();
   resetPick();
+  orderDay = 0;
+  drawDayOrderTabs();
   drawMeals();
   go('pgOrder');
 }
@@ -590,7 +641,10 @@ function togItemDrink(id, i, val) {
   pick[id][i].drink = val;
   calcSub(id); calcTotal();
 }
-function today() { const i=(new Date().getDay()+6)%7; return menu[Math.min(i,4)]; }
+function today() {
+  const i = (new Date().getDay()+6)%7;
+  return menu[Math.min(i+orderDay, 4)];
+}
 function resetPick() {
   pick = {};
   const t = today();
@@ -759,6 +813,7 @@ async function adjBal(n, dir) {
 }
 
 function drawMenuPage() {
+  document.getElementById('openDaysSel').value = window.openDays || 1;
   const n=new Date(), mon=new Date(n);
   mon.setDate(n.getDate()-((n.getDay()+6)%7));
   const fri=new Date(mon); fri.setDate(mon.getDate()+4);
