@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>學校午餐訂餐</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; }
+
+.wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+.box { background: white; border: 1px solid #e5e5e0; border-radius: 12px; padding: 2rem 1.75rem; width: 100%; max-width: 340px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.logo { text-align: center; margin-bottom: 1.75rem; }
+.logo-img { width: 48px; height: 48px; background: #EAF3DE; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+.logo-img svg { width: 24px; height: 24px; }
+.logo h1 { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+.logo p { font-size: 13px; color: #888; margin-top: 3px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+.field input { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; color: #1a1a1a; outline: none; transition: border-color .2s, box-shadow .2s; }
+.field input:focus { border-color: #1D9E75; box-shadow: 0 0 0 2px rgba(29,158,117,.15); }
+.errmsg { font-size: 12px; color: #A32D2D; background: #FCEBEB; border-radius: 8px; padding: 7px 12px; margin-bottom: 12px; display: none; }
+.btn-login { width: 100%; padding: 10px; background: #1D9E75; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background .2s; }
+.btn-login:hover { background: #0F6E56; }
+
+.pg { display: none; max-width: 480px; margin: 0 auto; padding: 1rem; }
+.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.bar h1 { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+.bar-right { display: flex; align-items: center; gap: 6px; }
+.face { width: 30px; height: 30px; border-radius: 50%; background: #EAF3DE; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #3B6D11; }
+.btn { font-size: 12px; color: #666; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 4px 10px; cursor: pointer; white-space: nowrap; transition: background .15s; }
+.btn:hover { background: #f5f5f0; }
+
+.money { font-size: 13px; background: #EAF3DE; color: #3B6D11; padding: 4px 12px; border-radius: 8px; margin-bottom: 10px; display: inline-block; font-weight: 500; }
+.date { font-size: 13px; color: #888; margin-bottom: 8px; }
+.cutopen { font-size: 12px; color: #854F0B; background: #FAEEDA; border-radius: 8px; padding: 5px 12px; margin-bottom: 12px; }
+.cutclose { font-size: 12px; color: #A32D2D; background: #FCEBEB; border-radius: 8px; padding: 5px 12px; margin-bottom: 12px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.tab { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f0; color: #888; font-size: 14px; cursor: pointer; text-align: center; transition: all .15s; }
+.tab.on { background: white; color: #1a1a1a; border-color: #aaa; font-weight: 600; }
+.card { background: white; border: 1px solid #e5e5e0; border-radius: 12px; padding: .85rem 1.1rem; margin-bottom: 10px; }
+.card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.cname { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.cprice { font-size: 13px; color: #888; }
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.row label { font-size: 13px; color: #888; width: 52px; flex-shrink: 0; }
+.qbox { display: flex; align-items: center; gap: 8px; }
+.qbtn { width: 28px; height: 28px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f0; color: #1a1a1a; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.qbtn:hover { background: #e8e8e0; }
+.qnum { font-size: 15px; font-weight: 600; min-width: 20px; text-align: center; color: #1a1a1a; }
+.setrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.tog { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; }
+.track { position: absolute; inset: 0; background: #ccc; border-radius: 11px; transition: background .2s; cursor: pointer; }
+.track:before { content: ''; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform .2s; }
+input:checked + .track { background: #1D9E75; }
+input:checked + .track:before { transform: translateX(17px); }
+input:disabled + .track { opacity: .4; cursor: not-allowed; }
+.dsel { font-size: 13px; border: 1px solid #ddd; border-radius: 8px; padding: 4px 8px; background: white; color: #1a1a1a; }
+.sub { font-size: 13px; color: #888; text-align: right; padding-top: 8px; border-top: 1px solid #f0f0e8; }
+.sub span { color: #1a1a1a; font-weight: 600; }
+.foot { background: #f5f5f0; border-radius: 12px; padding: 1rem 1.1rem; margin-top: 4px; }
+.frow { display: flex; justify-content: space-between; font-size: 14px; color: #888; margin-bottom: 6px; }
+.ftotal { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; color: #1a1a1a; padding-top: 8px; border-top: 1px solid #e5e5e0; }
+.btn-send { width: 100%; margin-top: 12px; padding: 11px; background: #1D9E75; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s; }
+.btn-send:hover { background: #0F6E56; }
+.btn-send:disabled { background: #ccc; color: #999; cursor: not-allowed; }
+.noitem { text-align: center; padding: 2rem; color: #aaa; font-size: 14px; }
+
+.ucard { background: white; border: 1px solid #e5e5e0; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.uhead { display: flex; justify-content: space-between; align-items: center; padding: .85rem 1.1rem; cursor: pointer; transition: background .15s; }
+.uhead:hover { background: #f9f9f5; }
+.uname { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.ubal { font-size: 15px; font-weight: 600; color: #1D9E75; }
+.arr { font-size: 11px; color: #bbb; margin-left: 8px; transition: transform .2s; }
+.ubody { border-top: 1px solid #f0f0e8; padding: .85rem 1.1rem; display: none; }
+.ubody.open { display: block; }
+.amtrow { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.amtin { flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; color: #1a1a1a; outline: none; }
+.amtin:focus { border-color: #1D9E75; }
+.btn-add { padding: 7px 12px; background: #EAF3DE; color: #3B6D11; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-add:hover { background: #C0DD97; }
+.btn-sub { padding: 7px 12px; background: #FCEBEB; color: #A32D2D; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-sub:hover { background: #F7C1C1; }
+.loglbl { font-size: 12px; color: #888; margin-bottom: 6px; }
+.lognil { font-size: 13px; color: #bbb; text-align: center; padding: 8px 0; }
+.logrow { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #f0f0e8; font-size: 13px; }
+.logrow:last-child { border-bottom: none; }
+.logtext { color: #1a1a1a; }
+.logtime { font-size: 11px; color: #bbb; margin-top: 1px; }
+.logamt.up { font-weight: 600; color: #1D9E75; }
+.logamt.dn { font-weight: 600; color: #A32D2D; }
+
+.dtabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 2px; }
+.dtab { flex-shrink: 0; padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f0; color: #888; font-size: 13px; cursor: pointer; transition: all .15s; }
+.dtab.on { background: white; color: #1a1a1a; border-color: #aaa; font-weight: 600; }
+.slbl { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; }
+.mrow { display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #e5e5e0; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.minfo { flex: 1; min-width: 0; }
+.mname { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+.mmeta { font-size: 12px; color: #888; margin-top: 2px; }
+.btn-edit { font-size: 12px; color: #666; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+.btn-edit:hover { background: #f5f5f0; }
+.btn-del { font-size: 12px; color: #A32D2D; background: white; border: 1px solid #F0959B; border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+.btn-del:hover { background: #FCEBEB; }
+.addbox { border: 1px dashed #ccc; border-radius: 12px; padding: 1rem; margin-top: 4px; background: white; }
+.addtitle { font-size: 13px; font-weight: 600; color: #1a1a1a; margin-bottom: 10px; }
+.inrow { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.inp { flex: 1; min-width: 100px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; color: #1a1a1a; outline: none; }
+.inp:focus { border-color: #1D9E75; }
+.inp-s { width: 80px; flex: none; }
+.typetog { display: flex; gap: 6px; margin-bottom: 10px; }
+.tbtn { padding: 5px 14px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f0; color: #888; font-size: 13px; cursor: pointer; transition: all .15s; }
+.tbtn.on { background: #EAF3DE; color: #3B6D11; border-color: #9FE1CB; }
+.btn-save { width: 100%; padding: 8px; background: #1D9E75; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s; }
+.btn-save:hover { background: #0F6E56; }
+.sep { font-size: 12px; font-weight: 600; color: #888; margin: 12px 0 8px; padding-top: 12px; border-top: 1px solid #e5e5e0; text-transform: uppercase; letter-spacing: .05em; }
+.nil { font-size: 13px; color: #bbb; text-align: center; padding: 12px 0; }
+.wklbl { font-size: 12px; color: #bbb; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+.popup { background: white; border-radius: 12px; padding: 1.25rem; width: 100%; max-width: 320px; }
+.popup h2 { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 12px; }
+.popbtns { display: flex; gap: 8px; margin-top: 12px; }
+.popbtns button { flex: 1; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+.btn-no { background: #f5f5f0; color: #666; border: 1px solid #ddd; }
+.btn-ok { background: #1D9E75; color: white; border: none; }
+.btn-ok:hover { background: #0F6E56; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; font-size: 13px; padding: 8px 18px; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 99; }
+.toast.show { opacity: 1; }
+.hide { display: none !important; }
+
+.donate {
+  position: fixed;
+  background-color: #f0f0f0;
+  color: #555;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  bottom: 50px;
+  right: 50px;
+}
+.donate:hover {
+  background-color: #e0e0e0;
+}
+.coin {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  background: #f5c842;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 999;
+  animation: flyToDonate 0.8s ease-in forwards;
+}
+
+@keyframes flyToDonate {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(calc(50vw - 74px), calc(50vh - 25px)) scale(0.2); opacity: 0; }
+}
+</style>
+</head>
+<body>
+<script type="module">
+window.saveUser = saveUser;
+window.saveMenu = saveMenu;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const fbConfig = {
+  apiKey: "AIzaSyA3MfTkuXeovGICNaq_bH-9AVF1w6iYRB0",
+  authDomain: "lunch-18d6f.firebaseapp.com",
+  projectId: "lunch-18d6f",
+  storageBucket: "lunch-18d6f.firebasestorage.app",
+  messagingSenderId: "145030486776",
+  appId: "1:145030486776:web:083f901f205ee2ce1a790d"
+};
+const app = initializeApp(fbConfig);
+const db  = getFirestore(app);
+async function loadUsers() {
+  const snap = await getDocs(collection(db, 'users'));
+  snap.forEach(d => { USERS[d.id] = d.data(); });
+}
+
+async function saveUser(id) {
+  await setDoc(doc(db, 'users', id), USERS[id]);
+}
+
+async function loadMenu() {
+  const snap = await getDoc(doc(db, 'menu', 'week'));
+  if (snap.exists()) {
+    const data = snap.data();
+    DAYS.forEach((d, i) => {
+      if (data[i]) menu[i] = data[i];
+    });
+  }
+}
+
+async function saveMenu() {
+  const obj = {};
+  DAYS.forEach((d, i) => { obj[i] = menu[i]; });
+  await setDoc(doc(db, 'menu', 'week'), obj);
+}
+
+async function initUsersToFirebase() {
+  for (const [id, u] of Object.entries(USERS)) {
+    const ref = doc(db, 'users', id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) await setDoc(ref, u);
+  }
+}
+
+async function startup() {
+  await initUsersToFirebase();
+  await loadUsers();
+  await loadMenu();
+}
+startup();
+window.go = go;
+window.doLogin = doLogin;
+window.doLogout = doLogout;
+window.clearErr = clearErr;
+window.switchTab = switchTab;
+window.chgQty = chgQty;
+window.togSet = togSet;
+window.submitOrder = submitOrder;
+window.togUser = togUser;
+window.adjBal = adjBal;
+window.drawMenuPage = drawMenuPage;
+window.switchDay = switchDay;
+window.setType = setType;
+window.addMeal = addMeal;
+window.delMeal = delMeal;
+window.openEdit = openEdit;
+window.closePop = closePop;
+window.saveEdit = saveEdit;
+window.setDonate = setDonate;
+window.doDonate = doDonate;
+window.setDonateCustom = setDonateCustom;
+</script>
+<!-- 贊助我 -->
+ <div class="container" style="display:none;">
+  <button class="donate" onclick="go('pgDonate')">斗內我</button>
+ </div>
+
+ <div class="pg" id="pgDonate">
+  <div class="bar"><h1>斗內</h1><button class="btn" onclick="go('pgOrder')">← 返回</button></div>
+  <div class="box" style="margin-top:1rem;">
+    <p style="font-size:13px;color:#888;margin-bottom:12px;">選擇金額</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="tbtn" onclick="setDonate(10)">$10</button>
+      <button class="tbtn" onclick="setDonate(50)">$50</button>
+      <button class="tbtn" onclick="setDonate(100)">$100</button>
+      <p style="font-size:13px;color:#888;margin-top:12px;margin-bottom:6px;">或自行輸入</p>
+      <input class="inp" type="number" id="dAmt" inputmode="numeric" placeholder="輸入金額" oninput="setDonateCustom(this.value)">
+    </div>
+    <p style="font-size:13px;color:#888;margin-bottom:6px;">確認密碼</p>
+    <input class="inp" type="password" id="dPin" inputmode="numeric" maxlength="4" placeholder="輸入密碼">
+    <div class="errmsg" id="dErr" style="margin-top:8px;"></div>
+    <button class="btn-save" style="margin-top:12px;" onclick="doDonate()">確認斗內</button>
+  </div>
+</div>
+<!-- 登入 -->
+<div class="wrap" id="pgLogin">
+  <div class="box">
+    <div class="logo">
+      <div class="logo-img">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+      </div>
+      <h1>學校午餐訂餐</h1>
+      <p>請登入後開始點餐</p>
+    </div>
+    <div class="field">
+      <label>帳號</label>
+      <input type="text" id="iUser" placeholder="輸入帳號" oninput="clearErr()" onkeydown="if(event.key==='Enter')document.getElementById('iPin').focus()">
+    </div>
+    <div class="field">
+      <label>密碼</label>                    <!-- 數字鍵盤 -->
+      <input type="password" id="iPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4 位數字" oninput="clearErr();if(this.value.length===4)doLogin()" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="errmsg" id="errmsg"></div>
+    <button class="btn-login" onclick="doLogin()">登入</button>
+  </div>
+</div>
+
+<!-- 點餐 -->
+<div class="pg" id="pgOrder">
+  <div class="bar">
+    <h1>今日午餐</h1>
+    <div class="bar-right">
+      <div class="face" id="face"></div>
+      <button class="btn hide" id="btnMenu" onclick="go('pgMenu')">菜單</button>
+      <button class="btn hide" id="btnAdmin" onclick="go('pgAdmin')">管理</button>
+      <button class="btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+  <div class="money" id="moneyEl"></div>
+  <div class="date" id="dateEl"></div>
+  <div id="cutEl"></div>
+  <div class="tabs">
+    <div class="tab on" onclick="switchTab('bento')">便當</div>
+    <div class="tab" onclick="switchTab('western')">西式</div>
+  </div>
+  <div id="tab-bento"><div id="bento-list"></div></div>
+  <div id="tab-western" class="hide"><div id="western-list"></div></div>
+  <div class="foot">
+    <div class="frow"><span>已選</span><span id="cnt">0 項</span></div>
+    <div class="ftotal"><span>合計</span><span id="ttl">$0</span></div>
+    <button class="btn-send" id="btnSend" disabled onclick="submitOrder()">送出訂單</button>
+  </div>
+</div>
+
+<!-- 儲值管理 -->
+<div class="pg" id="pgAdmin">
+  <div class="bar"><h1>儲值管理</h1><button class="btn" onclick="go('pgOrder')">← 返回</button></div>
+  <div id="ulist"></div>
+</div>
+
+<!-- 菜單管理 -->
+<div class="pg" id="pgMenu">
+  <div class="bar">
+    <h1>菜單管理</h1>
+    <div class="bar-right">
+      <span class="wklbl" id="wklbl"></span>
+      <button class="btn" onclick="go('pgOrder')">← 返回</button>
+    </div>
+  </div>
+  <div class="dtabs" id="dtabs"></div>
+  <div id="mcontent"></div>
+  <div class="addbox">
+    <div class="addtitle">新增餐點</div>
+    <div class="typetog">
+      <button class="tbtn on" id="tBento" onclick="setType('bento')">便當</button>
+      <button class="tbtn" id="tWest" onclick="setType('western')">西式</button>
+    </div>
+    <div class="inrow">
+      <input class="inp" id="nName" placeholder="餐點名稱">
+      <input class="inp inp-s" id="nPrice" placeholder="價格" type="number" inputmode="numeric">
+    </div>
+    <div class="inrow hide" id="nSetRow">
+      <input class="inp inp-s" id="nSet" placeholder="套餐+$" type="number" inputmode="numeric">
+      <span style="font-size:12px;color:#888;align-self:center;">（選填）</span>
+    </div>
+    <button class="btn-save" onclick="addMeal()">新增</button>
+  </div>
+</div>
+
+<!-- 編輯 popup -->
+<div class="overlay hide" id="editPop">
+  <div class="popup">
+    <h2>編輯餐點</h2>
+    <div class="inrow"><input class="inp" id="eName" placeholder="名稱"></div>
+    <div class="inrow">
+      <input class="inp inp-s" id="ePrice" placeholder="價格" type="number" inputmode="numeric">
+      <input class="inp inp-s" id="eSet" placeholder="套餐+$" type="number" inputmode="numeric">
+    </div>
+    <div class="popbtns">
+      <button class="btn-no" onclick="closePop()">取消</button>
+      <button class="btn-ok" onclick="saveEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const USERS = {
+"10301": { pin:"0071", balance:0, isAdmin:false, log:[] },
+  "10302": { pin:"0072", balance:0, isAdmin:false, log:[] },
+  "10303": { pin:"0073", balance:0, isAdmin:false, log:[] },
+  "10304": { pin:"0074", balance:0, isAdmin:false, log:[] },
+  "10305": { pin:"0075", balance:0, isAdmin:false, log:[] },
+  "10306": { pin:"0076", balance:0, isAdmin:false, log:[] },
+  "10307": { pin:"0077", balance:0, isAdmin:false, log:[] },
+  "10308": { pin:"0078", balance:0, isAdmin:false, log:[] },
+  "10309": { pin:"0079", balance:0, isAdmin:false, log:[] },
+  "10310": { pin:"0080", balance:0, isAdmin:false, log:[] },
+  "10311": { pin:"0081", balance:0, isAdmin:false, log:[] },
+  "10312": { pin:"0082", balance:0, isAdmin:false, log:[] },
+  "10313": { pin:"0083", balance:0, isAdmin:false, log:[] },
+  "10314": { pin:"0084", balance:0, isAdmin:false, log:[] },
+  "10315": { pin:"0085", balance:0, isAdmin:false, log:[] },
+  "10316": { pin:"0086", balance:0, isAdmin:false, log:[] },
+  "10317": { pin:"0087", balance:0, isAdmin:false, log:[] },
+  "10318": { pin:"0088", balance:0, isAdmin:false, log:[] },
+  "10319": { pin:"0089", balance:0, isAdmin:false, log:[] },
+  "10320": { pin:"0090", balance:0, isAdmin:false, log:[] },
+  "10321": { pin:"0091", balance:0, isAdmin:false, log:[] },
+  "10322": { pin:"0092", balance:0, isAdmin:false, log:[] },
+  "10323": { pin:"0093", balance:0, isAdmin:false, log:[] },
+  "10324": { pin:"0094", balance:0, isAdmin:false, log:[] },
+  "10325": { pin:"0095", balance:0, isAdmin:false, log:[] },
+  "10326": { pin:"0096", balance:0, isAdmin:false, log:[] },
+  "10327": { pin:"0097", balance:0, isAdmin:false, log:[] },
+  "10328": { pin:"0098", balance:0, isAdmin:false, log:[] },
+  "10329": { pin:"0099", balance:0, isAdmin:false, log:[] },
+  "10330": { pin:"0100", balance:0, isAdmin:false, log:[] },
+  "10331": { pin:"0101", balance:0, isAdmin:false, log:[] },
+  "10332": { pin:"0102", balance:0, isAdmin:false, log:[] },
+  "10333": { pin:"0103", balance:0, isAdmin:false, log:[] },
+  "10334": { pin:"0104", balance:0, isAdmin:false, log:[] },
+  "10335": { pin:"0105", balance:0, isAdmin:false, log:[] },
+  "1": { pin:"1111", balance:1000000, isAdmin:false, log:[] },
+  "admin": { pin:"0000", balance:0, isAdmin:true,  log:[] },
+};
+
+const DAYS  = ['一','二','三','四','五'];
+const DRINK = [{ name:"紅茶", add:15  },{ name:"綠茶", add:15  },{ name:"奶茶", add:25 },];
+const menu = DAYS.map(() => ({ bento: [], western: [] }));
+
+let me = null, pick = {}, day = 0, type = 'bento', edit = null;
+
+function uid() { return Math.random().toString(36).slice(2,8); }
+function ts() {
+  const d = new Date();
+  return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function closed() {
+  const n = new Date();
+  return n.getHours()*60 + n.getMinutes() >= 8*60+30;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function go(id) {
+  document.getElementById('pgLogin').style.display = id==='pgLogin' ? 'flex' : 'none';
+  ['pgOrder','pgAdmin','pgMenu','pgDonate'].forEach(p => {
+    document.getElementById(p).style.display = id===p ? 'block' : 'none';
+  });
+  if (id==='pgAdmin') drawUsers();
+  if (id==='pgMenu')  drawMenuPage();
+}
+
+function doLogin() {
+  const user = document.getElementById('iUser').value.trim();
+  const pin  = document.getElementById('iPin').value;
+  const err  = document.getElementById('errmsg');
+  if (!USERS[user]) { err.textContent='找不到此帳號'; err.style.display='block'; return; }
+  if (USERS[user].pin !== pin) { err.textContent='密碼錯誤，請再試一次'; err.style.display='block'; document.getElementById('iPin').value=''; return; }
+  me = user;
+  document.getElementById('face').textContent = user.slice(-2);
+  document.getElementById('face').style.background = USERS[user].isAdmin ? '#FCEBEB' : '#EAF3DE';
+  document.getElementById('face').style.color = USERS[user].isAdmin ? '#A32D2D' : '#3B6D11';
+  document.getElementById('face').textContent = USERS[user].isAdmin ? '管理' : user.slice(-2);
+  document.getElementById('btnAdmin').classList.toggle('hide', !USERS[user].isAdmin);
+  document.getElementById('btnMenu').classList.toggle('hide',  !USERS[user].isAdmin);
+  document.querySelector('.container').style.display = 'flex';
+  drawBalance();
+  const n = new Date(), wd = ['日','一','二','三','四','五','六'];
+  document.getElementById('dateEl').textContent = `星期${wd[n.getDay()]}・${n.getMonth()+1} 月 ${n.getDate()} 日`;
+  drawCut();
+  resetPick();
+  drawMeals();
+  go('pgOrder');
+}
+function clearErr() { const e=document.getElementById('errmsg'); e.style.display='none'; e.textContent=''; }
+function doLogout() {
+  me = null;
+  document.getElementById('iUser').value = '';
+  document.getElementById('iPin').value = '';
+  clearErr();
+  go('pgLogin');
+  document.querySelector('.container').style.display = 'none';
+}
+function drawBalance() { document.getElementById('moneyEl').textContent = `餘額 $${USERS[me].balance}`; }
+
+function drawCut() {
+  const el = document.getElementById('cutEl');
+  const sb = document.getElementById('btnSend');
+  if (closed()) {
+    el.innerHTML = '<div class="cutclose">今日點餐已截止（08:30）</div>';
+    sb.disabled = true; sb.textContent = '點餐已截止';
+    document.querySelectorAll('.qbtn').forEach(b => b.disabled = true);
+  } else {
+    const m = 8*60+30 - (new Date().getHours()*60 + new Date().getMinutes());
+    const h = Math.floor(m/60), mm = m%60;
+    el.innerHTML = `<div class="cutopen">點餐截止：上午 8:30（還有 ${h>0?h+' 小時 '+mm+' 分鐘':mm+' 分鐘'}）</div>`;
+  }
+}
+
+function today() { const i=(new Date().getDay()+6)%7; return menu[Math.min(i,4)]; }
+function resetPick() {
+  pick = {};
+  const t = today();
+  [...t.bento,...t.western].forEach(m => { pick[m.id]={qty:0,set:false,drink:DRINK[0]}; });
+}
+function mcard(m) {
+  const sp = m.set ? `
+    <div class="setrow">
+      <label class="tog"><input type="checkbox" id="set-${m.id}" onchange="togSet('${m.id}')" disabled><span class="track"></span></label>
+      <span style="font-size:13px;color:#888;">套餐 +$${m.set}</span>
+      <select class="dsel hide" id="drk-${m.id}" onchange="pick['${m.id}'].drink=this.value">
+        ${DRINK.map(d=>`<option value="${d.name}">${d.name}${d.add>0?' (+$'+d.add+')':''}</option>`).join('')}
+      </select>
+    </div>` : '';
+  return `<div class="card">
+    <div class="card-top"><span class="cname">${m.name}</span><span class="cprice">$${m.price}</span></div>
+    <div class="row"><label>數量</label>
+      <div class="qbox">
+        <button class="qbtn" onclick="chgQty('${m.id}',-1)">−</button>
+        <span class="qnum" id="q-${m.id}">0</span>
+        <button class="qbtn" onclick="chgQty('${m.id}',1)">+</button>
+      </div>
+    </div>${sp}
+    <div class="sub">小計 <span id="s-${m.id}">$0</span></div>
+  </div>`;
+}
+function drawMeals() {
+  const t = today();
+  document.getElementById('bento-list').innerHTML   = t.bento.length   ? t.bento.map(m=>mcard(m)).join('')   : '<div class="noitem">今日無便當菜單</div>';
+  document.getElementById('western-list').innerHTML = t.western.length ? t.western.map(m=>mcard(m)).join('') : '<div class="noitem">今日無西式菜單</div>';
+  if (closed()) document.querySelectorAll('.qbtn').forEach(b => b.disabled = true);
+}
+function switchTab(t) {
+  document.getElementById('tab-bento').classList.toggle('hide', t!=='bento');
+  document.getElementById('tab-western').classList.toggle('hide', t!=='western');
+  document.querySelectorAll('.tabs .tab').forEach((el,i) => el.classList.toggle('on', (i===0&&t==='bento')||(i===1&&t==='western')));
+}
+function chgQty(id, d) {
+  if (closed()) return;
+  if (!pick[id]) pick[id]={qty:0,set:false,drink:DRINK[0]};
+  const p = pick[id]; p.qty = Math.max(0, p.qty+d);
+  document.getElementById(`q-${id}`).textContent = p.qty;
+  const cb = document.getElementById(`set-${id}`);
+  if (cb) { cb.disabled=p.qty===0; if(p.qty===0){p.set=false;cb.checked=false;togSet(id);} }
+  calcSub(id); calcTotal();
+}
+function togSet(id) {
+  const p = pick[id]; p.set = document.getElementById(`set-${id}`).checked;
+  const sel = document.getElementById(`drk-${id}`);
+  if (sel) sel.classList.toggle('hide', !p.set);
+  calcSub(id); calcTotal();
+}
+function calcSub(id) {
+  const t = today(), all = [...t.bento,...t.western];
+  const m = all.find(x=>x.id===id); if(!m)return;
+  const p = pick[id]||{qty:0};
+  document.getElementById(`s-${id}`).textContent = `$${p.qty*(m.price+(p.set&&m.set?m.set:0))}`;
+}
+function calcTotal() {
+  const t = today(), all = [...t.bento,...t.western];
+  let sum=0, cnt=0;
+  all.forEach(m => { const p=pick[m.id]||{qty:0}; sum+=p.qty*(m.price+(p.set&&m.set?m.set:0)); cnt+=p.qty; });
+  document.getElementById('ttl').textContent = `$${sum}`;
+  document.getElementById('cnt').textContent = `${cnt} 項`;
+  if (!closed()) document.getElementById('btnSend').disabled = cnt===0;
+}
+async function submitOrder() {
+  const t = today(), all = [...t.bento,...t.western];
+  const lines = all.filter(m=>pick[m.id]&&pick[m.id].qty>0).map(m => {
+    const p = pick[m.id];
+    return `${m.name} ×${p.qty}${p.set?`（套餐・${p.drink}）`:''}`;
+  });
+  if (!lines.length) return;
+  let sum = 0;
+  all.forEach(m => { const p=pick[m.id]||{qty:0}; sum+=p.qty*(m.price+(p.set&&m.set?m.set:0)); });
+  USERS[me].balance -= sum;
+  USERS[me].log.push({ desc:`點餐 ${lines.join('、')}`, amt:-sum, time:ts() });
+  await saveUser(me);
+  toast(`訂單送出！扣款 $${sum}`);
+  drawBalance();
+  resetPick(); drawMeals(); calcTotal();
+}
+
+function drawUsers() {
+  const list = Object.keys(USERS);
+  document.getElementById('ulist').innerHTML = list.map(n => {
+    const u = USERS[n];
+    return `<div class="ucard">
+      <div class="uhead" onclick="togUser('${n}')">
+        <span class="uname">${n}</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span class="ubal" id="b-${n}">$${u.balance}</span>
+          <span class="arr" id="arr-${n}">▶</span>
+        </div>
+      </div>
+      <div class="ubody" id="ub-${n}">
+        <div class="amtrow">
+          <input type="number" class="amtin" id="a-${n}" placeholder="金額" min="1" inputmode="numeric">
+          <button class="btn-add" onclick="adjBal('${n}',1)">+ 儲值</button>
+          <button class="btn-sub" onclick="adjBal('${n}',-1)">− 扣款</button>
+        </div>
+        <div class="loglbl">消費記錄</div>
+        <div id="lg-${n}">${drawLog(n)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function drawLog(n) {
+  const lg = USERS[n].log;
+  if (!lg.length) return `<div class="lognil">尚無記錄</div>`;
+  return [...lg].reverse().map(l => `
+    <div class="logrow">
+      <div><div class="logtext">${l.desc}</div><div class="logtime">${l.time}</div></div>
+      <span class="logamt ${l.amt>0?'up':'dn'}">${l.amt>0?'+':''}$${Math.abs(l.amt)}</span>
+    </div>`).join('');
+}
+function togUser(n) {
+  const b=document.getElementById(`ub-${n}`), a=document.getElementById(`arr-${n}`);
+  const o=b.classList.toggle('open'); a.style.transform=o?'rotate(90deg)':'';
+}
+async function adjBal(n, dir) {
+  const inp = document.getElementById(`a-${n}`);
+  const amt = parseInt(inp.value);
+  if (!amt||amt<=0) { toast('請輸入有效金額'); return; }
+  USERS[n].balance += dir*amt;
+  if (USERS[n].balance<0) USERS[n].balance=0;
+  USERS[n].log.push({ desc:dir>0?'儲值':'扣款', amt:dir*amt, time:ts() });
+  await saveUser(n);
+  document.getElementById(`b-${n}`).textContent = `$${USERS[n].balance}`;
+  document.getElementById(`lg-${n}`).innerHTML = drawLog(n);
+  inp.value = '';
+  toast(dir>0 ? `已幫 ${n} 儲值 $${amt}` : `已扣除 ${n} $${amt}`);
+}
+
+function drawMenuPage() {
+  const n=new Date(), mon=new Date(n);
+  mon.setDate(n.getDate()-((n.getDay()+6)%7));
+  const fri=new Date(mon); fri.setDate(mon.getDate()+4);
+  const fmt=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('wklbl').textContent = `${fmt(mon)} – ${fmt(fri)}`;
+  document.getElementById('dtabs').innerHTML = DAYS.map((d,i) =>
+    `<div class="dtab${i===day?' on':''}" onclick="switchDay(${i})">週${d}</div>`
+  ).join('');
+  drawDay();
+}
+function switchDay(i) {
+  day = i;
+  document.querySelectorAll('.dtab').forEach((t,j) => t.classList.toggle('on', j===i));
+  drawDay();
+}
+function drawDay() {
+  const m = menu[day]; let h='';
+  h += `<div class="slbl">便當（${m.bento.length} 項）</div>`;
+  h += m.bento.length ? m.bento.map(x=>mrow(x,'bento')).join('') : `<div class="nil">尚無便當</div>`;
+  h += `<div class="sep">西式（${m.western.length} 項）</div>`;
+  h += m.western.length ? m.western.map(x=>mrow(x,'western')).join('') : `<div class="nil">尚無西式</div>`;
+  document.getElementById('mcontent').innerHTML = h;
+}
+function mrow(m, t) {
+  const meta = t==='western'&&m.set ? `$${m.price}・套餐 +$${m.set}` : `$${m.price}`;
+  return `<div class="mrow">
+    <div class="minfo"><div class="mname">${m.name}</div><div class="mmeta">${meta}</div></div>
+    <button class="btn-edit" onclick="openEdit('${m.id}','${t}')">編輯</button>
+    <button class="btn-del" onclick="delMeal('${m.id}','${t}')">刪除</button>
+  </div>`;
+}
+function setType(t) {
+  type = t;
+  document.getElementById('tBento').classList.toggle('on', t==='bento');
+  document.getElementById('tWest').classList.toggle('on', t==='western');
+  document.getElementById('nSetRow').classList.toggle('hide', t==='bento');
+}
+async function addMeal() {
+  const name  = document.getElementById('nName').value.trim();
+  const price = parseInt(document.getElementById('nPrice').value);
+  if (!name||!price||price<=0) { toast('請填寫名稱與價格'); return; }
+  const item = { id:uid(), name, price };
+  if (type==='western') { const sp=parseInt(document.getElementById('nSet').value); if(sp>0)item.set=sp; }
+  menu[day][type].push(item);
+  pick[item.id] = { qty:0, set:false, drink:DRINK[0] };
+  document.getElementById('nName').value = '';
+  document.getElementById('nPrice').value = '';
+  document.getElementById('nSet').value = '';
+  await saveMenu();
+  drawDay();
+  toast(`已新增「${name}」`);
+}
+async function delMeal(id, t) {
+  const arr=menu[day][t], i=arr.findIndex(m=>m.id===id);
+  if (i>=0) { const n=arr[i].name; arr.splice(i,1); await saveMenu(); drawDay(); toast(`已刪除「${n}」`); }
+}
+function openEdit(id, t) {
+  const m = menu[day][t].find(x=>x.id===id); if(!m)return;
+  edit = { id, t };
+  document.getElementById('eName').value  = m.name;
+  document.getElementById('ePrice').value = m.price;
+  document.getElementById('eSet').value   = m.set||'';
+  document.getElementById('eSet').closest('.inrow').style.display = t==='western'?'flex':'none';
+  document.getElementById('editPop').classList.remove('hide');
+}
+function closePop() { document.getElementById('editPop').classList.add('hide'); edit=null; }
+async function saveEdit() {
+  if (!edit) return;
+  const {id, t} = edit;
+  const m = menu[day][t].find(x=>x.id===id);
+  const name  = document.getElementById('eName').value.trim();
+  const price = parseInt(document.getElementById('ePrice').value);
+  if (!name||!price||price<=0) { toast('請填寫名稱與價格'); return; }
+  m.name=name; m.price=price;
+  if (t==='western') { const sp=parseInt(document.getElementById('eSet').value); m.set=sp>0?sp:undefined; }
+  await saveMenu();
+  closePop(); drawDay(); toast(`已更新「${name}」`);
+}
+
+setInterval(() => { if(me) drawCut(); }, 30000);
+
+//donate
+let donateAmt = 0;
+
+function setDonate(amt) {
+  donateAmt = amt;
+  document.querySelectorAll('#pgDonate .tbtn').forEach(b => b.classList.remove('on'));
+  event.target.classList.add('on');
+}
+
+async function doDonate() {
+  const err = document.getElementById('dErr');
+  const pin = document.getElementById('dPin').value;
+  if (!donateAmt) { err.textContent='請選擇金額'; err.style.display='block'; return; }
+  if (pin !== USERS[me].pin) { err.textContent='密碼錯誤'; err.style.display='block'; document.getElementById('dPin').value=''; return; }
+  if (USERS[me].balance < donateAmt) { err.textContent='餘額不足'; err.style.display='block'; return; }
+  USERS[me].balance -= donateAmt;
+  USERS['admin'].balance += donateAmt;
+  USERS[me].log.push({ desc:`斗內 admin`, amt:-donateAmt, time:ts() });
+  USERS['admin'].log.push({ desc:`收到 ${me} 斗內`, amt:donateAmt, time:ts() });
+  await saveUser(me);
+  await saveUser('admin');
+  drawBalance();
+  toast(`成功斗內 $${donateAmt}！`);
+  const coin = document.createElement('div');
+  coin.className = 'coin';
+  coin.textContent = '💰';
+  document.body.appendChild(coin);
+  setTimeout(() => coin.remove(), 800);
+  donateAmt = 0;
+  document.getElementById('dPin').value = '';
+  document.querySelectorAll('#pgDonate .tbtn').forEach(b => b.classList.remove('on'));
+  err.style.display = 'none';
+  go('pgOrder');
+}
+
+function setDonateCustom(val) {
+  donateAmt = parseInt(val) || 0;
+  document.querySelectorAll('#pgDonate .tbtn').forEach(b => b.classList.remove('on'));
+}
+</script>
+</body>
+</html>
