@@ -195,7 +195,11 @@ async function loadUsers() {
   const snap = await getDocs(collection(db, 'users'));
   snap.forEach(d => { USERS[d.id] = d.data(); });
 }
-
+async function loadOrders() {
+  const today = ts().slice(0,5).replace('/', '-');
+  const snap = await getDoc(doc(db, 'orders', today));
+  return snap.exists() ? snap.data().list : [];
+}
 async function saveUser(id) {
   await setDoc(doc(db, 'users', id), USERS[id]);
 }
@@ -223,7 +227,57 @@ async function initUsersToFirebase() {
     if (!snap.exists()) await setDoc(ref, u);
   }
 }
-
+async function drawOrders() {
+  const list = await window.loadOrders();
+  const mealSummary = {};
+  const drinkSummary = {};
+  let total = 0;
+  list.forEach(order => {
+    total += order.total;
+    const t = today(), all = [...t.bento,...t.western];
+    Object.entries(order.items).forEach(([id, items]) => {
+      const m = all.find(x=>x.id===id);
+      if (!m || !items.length) return;
+      if (!mealSummary[m.name]) mealSummary[m.name] = 0;
+      mealSummary[m.name] += items.length;
+      items.forEach(item => {
+        if (item.set) {
+          if (!drinkSummary[item.drink]) drinkSummary[item.drink] = 0;
+          drinkSummary[item.drink]++;
+        }
+      });
+    });
+  });
+  let html = '';
+  if (!list.length) {
+    html = '<div class="nil">今日尚無訂單</div>';
+  } else {
+    html += '<div class="slbl" style="margin-bottom:8px;">餐點</div>';
+    html += Object.entries(mealSummary).map(([name, cnt]) => `
+      <div class="logrow">
+        <div class="logtext">${name}</div>
+        <span class="logamt">×${cnt}</span>
+      </div>`).join('');
+    html += '<div class="slbl" style="margin:12px 0 8px;">飲料</div>';
+    html += Object.keys(drinkSummary).length ? Object.entries(drinkSummary).map(([name, cnt]) => `
+      <div class="logrow">
+        <div class="logtext">${name}</div>
+        <span class="logamt">×${cnt}</span>
+      </div>`).join('') : '<div class="nil">無套餐飲料</div>';
+    html += `<div class="ftotal" style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e5e0;">
+      <span>總共</span><span>$${total}</span>
+    </div>`;
+  }
+  document.getElementById('orderSummary').innerHTML = html;
+}
+async function saveOrder(orderData) {
+  const today = ts().slice(0,5).replace('/', '-');
+  const ref = doc(db, 'orders', today);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? snap.data().list : [];
+  existing.push(orderData);
+  await setDoc(ref, { list: existing });
+}
 async function startup() {
   await initUsersToFirebase();
   await loadUsers();
@@ -251,7 +305,17 @@ window.saveEdit = saveEdit;
 window.setDonate = setDonate;
 window.doDonate = doDonate;
 window.setDonateCustom = setDonateCustom;
+window.togItemSet = togItemSet;
+window.togItemDrink = togItemDrink;
+window.drawOrders = drawOrders;
+window.saveOrder = saveOrder;
+window.loadOrders = loadOrders;
 </script>
+<!-- 訂單 -->
+ <div class="pg" id="pgOrders">
+  <div class="bar"><h1>今日訂單</h1><button class="btn" onclick="go('pgOrder')">← 返回</button></div>
+  <div id="orderSummary"></div>
+</div>
 <!-- 贊助我 -->
  <div class="container" style="display:none;">
   <button class="donate" onclick="go('pgDonate')">斗內我</button>
@@ -305,6 +369,7 @@ window.setDonateCustom = setDonateCustom;
       <div class="face" id="face"></div>
       <button class="btn hide" id="btnMenu" onclick="go('pgMenu')">菜單</button>
       <button class="btn hide" id="btnAdmin" onclick="go('pgAdmin')">管理</button>
+      <button class="btn hide" id="btnOrders" onclick="go('pgOrders')">訂單</button>
       <button class="btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -430,6 +495,7 @@ function ts() {
   return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function closed() {
+  // return false;
   const n = new Date();
   return n.getHours()*60 + n.getMinutes() >= 8*60+30;
 }
@@ -441,11 +507,12 @@ function toast(msg) {
 
 function go(id) {
   document.getElementById('pgLogin').style.display = id==='pgLogin' ? 'flex' : 'none';
-  ['pgOrder','pgAdmin','pgMenu','pgDonate'].forEach(p => {
+  ['pgOrder','pgAdmin','pgMenu','pgDonate','pgOrders'].forEach(p => {
     document.getElementById(p).style.display = id===p ? 'block' : 'none';
   });
   if (id==='pgAdmin') drawUsers();
   if (id==='pgMenu')  drawMenuPage();
+  if (id==='pgOrders') drawOrders();
 }
 
 function doLogin() {
@@ -460,6 +527,7 @@ function doLogin() {
   document.getElementById('face').style.color = USERS[user].isAdmin ? '#A32D2D' : '#3B6D11';
   document.getElementById('face').textContent = USERS[user].isAdmin ? '管理' : user.slice(-2);
   document.getElementById('btnAdmin').classList.toggle('hide', !USERS[user].isAdmin);
+  document.getElementById('btnOrders').classList.toggle('hide', !USERS[user].isAdmin);
   document.getElementById('btnMenu').classList.toggle('hide',  !USERS[user].isAdmin);
   document.querySelector('.container').style.display = 'flex';
   drawBalance();
@@ -494,22 +562,42 @@ function drawCut() {
     el.innerHTML = `<div class="cutopen">點餐截止：上午 8:30（還有 ${h>0?h+' 小時 '+mm+' 分鐘':mm+' 分鐘'}）</div>`;
   }
 }
+function renderItems(id) {
+  const el = document.getElementById(`items-${id}`);
+  if (!el) return;
+  const p = pick[id] || [];
+  el.innerHTML = p.map((item, i) => `
+    <div class="setrow" style="margin-top:6px;">
+      <span style="font-size:12px;color:#888;">第${i+1}份</span>
+      <label class="tog">
+        <input type="checkbox" ${item.set?'checked':''} onchange="togItemSet('${id}',${i},this.checked)">
+        <span class="track"></span>
+      </label>
+      <span style="font-size:13px;color:#888;">套餐</span>
+      ${item.set ? `<select class="dsel" onchange="togItemDrink('${id}',${i},this.value)">
+        ${DRINK.map(d=>`<option value="${d.name}" ${item.drink===d.name?'selected':''}>${d.name} (+$${d.add})</option>`).join('')}
+      </select>` : ''}
+    </div>`).join('');
+}
+function togItemSet(id, i, checked) {
+  pick[id][i].set = checked;
+  pick[id][i].drink = DRINK[0].name;
+  renderItems(id);
+  calcSub(id); calcTotal();
+}
 
+function togItemDrink(id, i, val) {
+  pick[id][i].drink = val;
+  calcSub(id); calcTotal();
+}
 function today() { const i=(new Date().getDay()+6)%7; return menu[Math.min(i,4)]; }
 function resetPick() {
   pick = {};
   const t = today();
-  [...t.bento,...t.western].forEach(m => { pick[m.id]={qty:0,set:false,drink:DRINK[0]}; });
+  [...t.bento,...t.western].forEach(m => { pick[m.id] = []; });
 }
 function mcard(m) {
-  const sp = m.set ? `
-    <div class="setrow">
-      <label class="tog"><input type="checkbox" id="set-${m.id}" onchange="togSet('${m.id}')" disabled><span class="track"></span></label>
-      <span style="font-size:13px;color:#888;">套餐 +$${m.set}</span>
-      <select class="dsel hide" id="drk-${m.id}" onchange="pick['${m.id}'].drink=this.value">
-        ${DRINK.map(d=>`<option value="${d.name}">${d.name}${d.add>0?' (+$'+d.add+')':''}</option>`).join('')}
-      </select>
-    </div>` : '';
+  const sp = m.isWestern ? `<div id="items-${m.id}"></div>` : '';
   return `<div class="card">
     <div class="card-top"><span class="cname">${m.name}</span><span class="cprice">$${m.price}</span></div>
     <div class="row"><label>數量</label>
@@ -521,6 +609,13 @@ function mcard(m) {
     </div>${sp}
     <div class="sub">小計 <span id="s-${m.id}">$0</span></div>
   </div>`;
+}
+function chgSet(id, d) {
+  if (!pick[id]) pick[id]={qty:0,setQty:0,drink:DRINK[0].name};
+  const p = pick[id];
+  p.setQty = Math.max(0, Math.min((p.setQty||0)+d, p.qty));
+  document.getElementById(`sn-${id}`).textContent = p.setQty;
+  calcSub(id); calcTotal();
 }
 function drawMeals() {
   const t = today();
@@ -535,11 +630,15 @@ function switchTab(t) {
 }
 function chgQty(id, d) {
   if (closed()) return;
-  if (!pick[id]) pick[id]={qty:0,set:false,drink:DRINK[0]};
-  const p = pick[id]; p.qty = Math.max(0, p.qty+d);
-  document.getElementById(`q-${id}`).textContent = p.qty;
-  const cb = document.getElementById(`set-${id}`);
-  if (cb) { cb.disabled=p.qty===0; if(p.qty===0){p.set=false;cb.checked=false;togSet(id);} }
+  if (!pick[id]) pick[id] = [];
+  const p = pick[id];
+  if (d > 0) {
+    p.push({ set:false, drink:DRINK[0].name });
+  } else if (d < 0 && p.length > 0) {
+    p.pop();
+  }
+  document.getElementById(`q-${id}`).textContent = p.length;
+  renderItems(id);
   calcSub(id); calcTotal();
 }
 function togSet(id) {
@@ -551,29 +650,58 @@ function togSet(id) {
 function calcSub(id) {
   const t = today(), all = [...t.bento,...t.western];
   const m = all.find(x=>x.id===id); if(!m)return;
-  const p = pick[id]||{qty:0};
-  document.getElementById(`s-${id}`).textContent = `$${p.qty*(m.price+(p.set&&m.set?m.set:0))}`;
+  const p = pick[id] || [];
+  let total = p.reduce((sum, item) => {
+    const drinkAdd = item.set ? (DRINK.find(d=>d.name===item.drink)?.add||0) : 0;
+    return sum + m.price + drinkAdd;
+  }, 0);
+  document.getElementById(`s-${id}`).textContent = `$${total}`;
 }
 function calcTotal() {
   const t = today(), all = [...t.bento,...t.western];
   let sum=0, cnt=0;
-  all.forEach(m => { const p=pick[m.id]||{qty:0}; sum+=p.qty*(m.price+(p.set&&m.set?m.set:0)); cnt+=p.qty; });
+  all.forEach(m => {
+    const p = pick[m.id] || [];
+    cnt += p.length;
+    p.forEach(item => {
+      const drinkAdd = item.set ? (DRINK.find(d=>d.name===item.drink)?.add||0) : 0;
+      sum += m.price + drinkAdd;
+    });
+  });
   document.getElementById('ttl').textContent = `$${sum}`;
   document.getElementById('cnt').textContent = `${cnt} 項`;
   if (!closed()) document.getElementById('btnSend').disabled = cnt===0;
 }
 async function submitOrder() {
   const t = today(), all = [...t.bento,...t.western];
-  const lines = all.filter(m=>pick[m.id]&&pick[m.id].qty>0).map(m => {
-    const p = pick[m.id];
-    return `${m.name} ×${p.qty}${p.set?`（套餐・${p.drink}）`:''}`;
-  });
+  const lines = all.filter(m=>pick[m.id]&&pick[m.id].length>0).map(m => {
+  const p = pick[m.id];
+  const detail = p.map((item, i) => 
+    item.set ? `第${i+1}份套餐(${item.drink})` : `第${i+1}份單點`
+  ).join('、');
+  return `${m.name} ×${p.length}（${detail}）`;
+});
   if (!lines.length) return;
   let sum = 0;
-  all.forEach(m => { const p=pick[m.id]||{qty:0}; sum+=p.qty*(m.price+(p.set&&m.set?m.set:0)); });
+  all.forEach(m => {
+    const p = pick[m.id] || [];
+    p.forEach(item => {
+      const drinkAdd = item.set ? (DRINK.find(d=>d.name===item.drink)?.add||0) : 0;
+      sum += m.price + drinkAdd;
+    });
+  });
   USERS[me].balance -= sum;
   USERS[me].log.push({ desc:`點餐 ${lines.join('、')}`, amt:-sum, time:ts() });
+  USERS['admin'].log.push({ desc:`${me} 點餐 ${lines.join('、')}`, amt:-sum, time:ts() });
+  await saveUser('admin');
   await saveUser(me);
+  await saveOrder({
+  user: me,
+  items: pick,
+  detail: lines,
+  total: sum,
+  time: ts()
+  });
   toast(`訂單送出！扣款 $${sum}`);
   drawBalance();
   resetPick(); drawMeals(); calcTotal();
@@ -673,7 +801,7 @@ async function addMeal() {
   const price = parseInt(document.getElementById('nPrice').value);
   if (!name||!price||price<=0) { toast('請填寫名稱與價格'); return; }
   const item = { id:uid(), name, price };
-  if (type==='western') { const sp=parseInt(document.getElementById('nSet').value); if(sp>0)item.set=sp; }
+  if (type==='western') { const sp=parseInt(document.getElementById('nSet').value); if(sp>0)item.set=sp; item.isWestern=true; }
   menu[day][type].push(item);
   pick[item.id] = { qty:0, set:false, drink:DRINK[0] };
   document.getElementById('nName').value = '';
